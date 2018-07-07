@@ -1,6 +1,7 @@
 # Preparation
 library(tidyverse)
 library(rvest)
+library(reshape2)
 
 jp.hostel.link <- "https://www.hostelworld.com/hostels/Japan"
 
@@ -90,6 +91,41 @@ hostel.link <-
   html_nodes("a") %>% 
   html_attr("href")
 
+# Rating summary score
+rating.summary <- 
+  page %>% 
+  html_nodes("div.inner-wrap") %>% 
+  html_nodes("div.page-contents") %>% 
+  html_nodes("div.contentbackground") %>% 
+  html_nodes("div.row") %>% 
+  html_nodes("div.resultcontainer") %>% 
+  html_nodes("div.fabresult") %>% 
+  html_nodes("div.fabresult-details-rating") %>% 
+  html_nodes("div.hwta-rating-container") %>% 
+  html_text()
+rating.summary <- 
+  rating.summary %>% 
+  unlist()
+rating.summary <- data.frame(rating.summary)
+rating.summary$rating.summary <- as.character(rating.summary$rating.summary)
+rating.summary$rating.summary <- 
+  rating.summary$rating.summary %>% 
+  str_remove_all("\n")
+rating.summary$rating.summary <- 
+  rating.summary$rating.summary %>% 
+  str_remove("\\s")
+
+rating.summary$rating.summary <- 
+  rating.summary$rating.summary %>% 
+  str_remove("                                      ")
+
+rating.summary$rating.summary <- 
+  rating.summary$rating.summary %>% 
+  str_sub(1, 5)
+
+rating.summary$rating.summary <- as.numeric(rating.summary$rating.summary)
+
+
 # overall.score <- 
 #   page %>% 
 #   html_nodes("div.row") %>% 
@@ -155,14 +191,26 @@ location <-
 
 data.frame(hostel.name, hostel.link, 
            # overall.score, rating_band, review_num, 
-           price.from, location)
+           price.from, location, rating.summary)
 }
 
 
 
 # Crate a list using apply function
+link.list <- 
+  link.list %>% 
+  filter(Link != "https://www.hostelworld.com/findabed.php/ChosenCity.Osaka/ChosenCountry.Japan?page=5" &
+           Link != "https://www.hostelworld.com/hostels/Kyoto/Japan?page=4")
+
+
 main.data <- apply(data.frame(link.list$Link), 1, hostel_scraping)
 main.data <- do.call(rbind.data.frame, main.data)
+
+
+main.data <- 
+  main.data %>% 
+  filter(rating.summary != 0.0)
+
 
 # Clean dataset
 main.data$location <- 
@@ -183,12 +231,94 @@ main.data <-
   main.data %>% 
   separate(City, sep = "/",
            into = c("Name", "City", "num")) %>% 
-  select(hostel.name, City, price.from, location, hostel.link)
+  select(hostel.name, City, price.from, location, rating.summary, hostel.link)
 
 
-# write.csv(main.data, file = "Hostel_list.csv")
+write.csv(main.data, file = "Hostel_list.csv")
+
+## Scraping Next step
+
+review_scraping <- function (url) {
+# Description
+
+url <- as.character(url)
+page <- read_html(url)
+description <- 
+  page %>% 
+  html_nodes("div.ms-content") %>% 
+  html_nodes('[name=ms-rating-description]') %>% 
+  html_nodes("div.row") %>% 
+  html_nodes("div.description-property") %>% 
+  html_text()
+
+# Rating
+summary.score <- 
+  page %>% 
+  html_nodes("div.ms-content") %>% 
+  html_nodes('[name=ms-reviews]') %>% 
+  html_nodes("div.row") %>% 
+  html_nodes('[name=ms-reviews-and-ratings]') %>% 
+  html_nodes("div.summary-row") %>% 
+  html_nodes("div.rating-summary") %>% 
+  html_nodes("div.score") %>% 
+  html_text()
+  
+rating.band <- 
+  page %>% 
+  html_nodes("div.ms-content") %>% 
+  html_nodes('[name=ms-reviews]') %>% 
+  html_nodes("div.row") %>% 
+  html_nodes('[name=ms-reviews-and-ratings]') %>% 
+  html_nodes("div.summary-row") %>% 
+  html_nodes("div.info") %>% 
+  html_nodes("p.keyword") %>% 
+  html_text()
+  
+# Rating Breadkdown
+rating.breakdown <- 
+  page %>% 
+  html_nodes("div.ms-content") %>% 
+  html_nodes('[name=ms-reviews]') %>% 
+  html_nodes("div.row") %>% 
+  html_nodes('[name=ms-reviews-and-ratings]') %>% 
+  html_nodes("ul.row") %>% 
+  html_nodes("li.small-12") %>% 
+  html_nodes("p.rating-label") %>% 
+  html_text()
 
 
+# Clean data
+rating.breakdown <- 
+  data.frame(rating.breakdown)
+rating.breakdown$rating.breakdown <- as.character(rating.breakdown$rating.breakdown)
+rating.breakdown$rating.breakdown <- 
+  rating.breakdown$rating.breakdown %>% 
+  str_remove("\\.")
+rating.breakdown$rating.breakdown <- 
+  rating.breakdown$rating.breakdown %>% str_to_lower()
+rating.breakdown$rating.breakdown <-
+  rating.breakdown$rating.breakdown %>% 
+  str_remove_all(" ")
+rating.breakdown$rating.breakdown <- 
+  rating.breakdown$rating.breakdown %>% 
+  colsplit("(?<=\\p{L})(?=[\\d+$])", c("Type", "Score"))
+rating.breakdown <- data.frame(rating.breakdown)
+rating.breakdown <- 
+  rating.breakdown$rating.breakdown
+
+rating.breakdown$Score <-
+  rating.breakdown$Score/10
+
+rating.breakdown <- rating.breakdown %>% 
+  spread(Type, Score)
+
+# Data frame
+data.frame(description, summary.score, rating.band, rating.breakdown)
+}
 
 
+# Looping deal
+hostel.link.list <- main.data$hostel.link
 
+
+hostel.dataset <- apply(data.frame(hostel.link.list), 1, review_scraping)
