@@ -347,7 +347,8 @@ dont_include <-
     "https://www.hostelworld.com/hosteldetails.php/YADOKARI-Namba-Hostel/Osaka/275473",
     "https://www.hostelworld.com/hosteldetails.php/Hostel-Namba-Takumi/Osaka/287035",
     "https://www.hostelworld.com/hosteldetails.php/The-Dorm-Hostel-Osaka/Osaka/271739",
-    "https://www.hostelworld.com/hosteldetails.php/Hostel-Stand-By-Me/Fukuoka-City/281155")
+    "https://www.hostelworld.com/hosteldetails.php/Hostel-Stand-By-Me/Fukuoka-City/281155",
+    "https://www.hostelworld.com/hosteldetails.php/FUJITAYA-Kyoto/Kyoto/264666")
 
 
 '%ni%' <- Negate('%in%')
@@ -357,4 +358,55 @@ main.data <-
 hostel.link.list <- main.data$hostel.link
 
 hostel.dataset <- apply(data.frame(hostel.link.list), 1, review_scraping)
-do.call(rbind, hostel.dataset)
+
+hostel.dataset.datafrmae <- do.call(rbind, hostel.dataset)
+
+# Cleaning
+hostel.dataset.datafrmae$Hostel.Name <- as.character(hostel.dataset.datafrmae$Hostel.Name)
+hostel.dataset.datafrmae$summary.score <- as.character(hostel.dataset.datafrmae$summary.score)
+
+
+hostel.dataset.datafrmae$Hostel.Name <- 
+  hostel.dataset.datafrmae$Hostel.Name %>% 
+  str_remove_all("\n                        ")
+hostel.dataset.datafrmae$Hostel.Name <- 
+  hostel.dataset.datafrmae$Hostel.Name %>% 
+  str_remove_all("\n                    ")
+
+hostel.dataset.datafrmae$summary.score <- 
+  hostel.dataset.datafrmae$summary.score %>% 
+  str_remove_all("\n            ")
+
+hostel.dataset.datafrmae$summary.score <- 
+  hostel.dataset.datafrmae$summary.score %>% 
+  str_remove_all("\n        ")
+hostel.dataset.datafrmae$summary.score <- 
+  as.numeric(hostel.dataset.datafrmae$summary.score)
+
+# Export
+# write.csv(hostel.dataset.datafrmae, file = "Hostel_Rating.csv")
+
+
+# Location
+location_scraping <- function (hostel) {
+  hostel <- as.character(hostel)
+  
+  data.frame(hostel, 
+             data.frame(geocode(hostel)))
+}
+
+
+hostel.location <- apply(data.frame(hostel.name), 1, location_scraping)
+hostel.location.data <- 
+  do.call(rbind, hostel.location)
+
+# write.csv(hostel.location.data, file = "Hostel_Location.csv")
+
+
+
+
+# Description
+
+
+
+
