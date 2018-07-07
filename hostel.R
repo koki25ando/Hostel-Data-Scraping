@@ -234,22 +234,37 @@ main.data <-
   select(hostel.name, City, price.from, location, rating.summary, hostel.link)
 
 
-write.csv(main.data, file = "Hostel_list.csv")
+# write.csv(main.data, file = "Hostel_list.csv")
 
 ## Scraping Next step
 
 review_scraping <- function (url) {
-# Description
-
+  
 url <- as.character(url)
 page <- read_html(url)
-description <- 
+
+# Hostel Name
+
+Hostel.Name <- 
   page %>% 
   html_nodes("div.ms-content") %>% 
-  html_nodes('[name=ms-rating-description]') %>% 
+  html_nodes('[name=ms-hero]') %>% 
+  html_nodes("div.jumbotron") %>% 
   html_nodes("div.row") %>% 
-  html_nodes("div.description-property") %>% 
+  html_nodes("div.small-12") %>% 
+  html_nodes("div.content") %>% 
+  html_nodes("h1") %>% 
   html_text()
+  
+# Description
+
+# description <- 
+#   page %>% 
+#   html_nodes("div.ms-content") %>% 
+#   html_nodes('[name=ms-rating-description]') %>% 
+#   html_nodes("div.row") %>% 
+#   html_nodes("div.description-property") %>% 
+#   html_text()
 
 # Rating
 summary.score <- 
@@ -313,12 +328,33 @@ rating.breakdown <- rating.breakdown %>%
   spread(Type, Score)
 
 # Data frame
-data.frame(description, summary.score, rating.band, rating.breakdown)
+data.frame(Hostel.Name, summary.score, rating.band, rating.breakdown)
 }
 
 
 # Looping deal
+dont_include <- 
+  c("https://www.hostelworld.com/hosteldetails.php/Hisayo-s-Inn/Tokyo/283587",
+    "https://www.hostelworld.com/hosteldetails.php/Kyo-To/Kyoto/280282",
+    "https://www.hostelworld.com/hosteldetails.php/Mosaic-Machiya-KSK/Kyoto/277116",
+    "https://www.hostelworld.com/hosteldetails.php/Hostel-TOKI/Fukuoka-City/286150",
+    "https://www.hostelworld.com/hosteldetails.php/Capsule-Hotel-Anshin-Oyado-Shinbashi/Tokyo/281072", 
+    "https://www.hostelworld.com/hosteldetails.php/Capsule-Hotel-Anshin-Oyado-Akihabara/Tokyo/281075",
+    "https://www.hostelworld.com/hosteldetails.php/Kyoto-Hostel-ZEN/Kyoto/283255",
+    "https://www.hostelworld.com/hosteldetails.php/3Q-House-Asakusa-Smile/Tokyo/286271",
+    "https://www.hostelworld.com/hosteldetails.php/Koenji-Junjo-Hotel/Tokyo/285896",
+    "https://www.hostelworld.com/hosteldetails.php/Calendar-Hotel/Kyoto/278973",
+    "https://www.hostelworld.com/hosteldetails.php/YADOKARI-Namba-Hostel/Osaka/275473",
+    "https://www.hostelworld.com/hosteldetails.php/Hostel-Namba-Takumi/Osaka/287035",
+    "https://www.hostelworld.com/hosteldetails.php/The-Dorm-Hostel-Osaka/Osaka/271739",
+    "https://www.hostelworld.com/hosteldetails.php/Hostel-Stand-By-Me/Fukuoka-City/281155")
+
+
+'%ni%' <- Negate('%in%')
+main.data <- 
+  main.data %>% 
+  filter(hostel.link %ni% dont_include)
 hostel.link.list <- main.data$hostel.link
 
-
 hostel.dataset <- apply(data.frame(hostel.link.list), 1, review_scraping)
+do.call(rbind, hostel.dataset)
